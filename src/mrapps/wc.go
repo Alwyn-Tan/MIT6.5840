@@ -6,10 +6,13 @@ package main
 // go build -buildmode=plugin wc.go
 //
 
-import "6.5840/mr"
-import "unicode"
-import "strings"
-import "strconv"
+import (
+	"strconv"
+	"strings"
+	"unicode"
+
+	"6.5840/mr"
+)
 
 // The map function is called once for each file of input. The first
 // argument is the name of the input file, and the second is the
@@ -17,7 +20,8 @@ import "strconv"
 // and look only at the contents argument. The return value is a slice
 // of key/value pairs.
 func Map(filename string, contents string) []mr.KeyValue {
-	// function to detect word separators.
+	// function to detect word separators, true means separator
+	//rune, or int32, is used to represent Unicode character
 	ff := func(r rune) bool { return !unicode.IsLetter(r) }
 
 	// split contents into an array of words.
