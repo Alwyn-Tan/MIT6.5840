@@ -1,21 +1,14 @@
 package mr
 
-//
-// RPC definitions.
-//
-// remember to capitalize all names.
-//
-
-import "os"
+import (
+	"os"
+)
 import "strconv"
 
-//
-// example to show how to declare the arguments
-// and reply for an RPC.
-//
-
-type ExampleArgs struct {
-	X int
+type Task struct {
+	index    int
+	taskType string
+	file     string
 }
 
 type ExampleReply struct {

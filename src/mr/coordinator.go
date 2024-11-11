@@ -1,34 +1,25 @@
 package mr
 
-import "log"
+import (
+	"log"
+	"strconv"
+	"sync"
+)
 import "net"
 import "os"
 import "net/rpc"
 import "net/http"
 
-
 type Coordinator struct {
-	// Your definitions here.
-
+	mutex         sync.Mutex
+	fileList      []string
+	MapTaskNum    int
+	ReduceTaskNum int
+	task          map[string]Task
 }
 
-// Your code here -- RPC handlers for the worker to call.
-
-//
-// an example RPC handler.
-//
-// the RPC argument and reply types are defined in rpc.go.
-//
-func (c *Coordinator) Example(args *ExampleArgs, reply *ExampleReply) error {
-	reply.Y = args.X + 1
-	return nil
-}
-
-
-//
-// start a thread that listens for RPCs from worker.go
-//
 func (c *Coordinator) server() {
+	log.Printf("Coordinator starting server")
 	rpc.Register(c)
 	rpc.HandleHTTP()
 	//l, e := net.Listen("tcp", ":1234")
@@ -54,17 +45,22 @@ func (c *Coordinator) Done() bool {
 	return ret
 }
 
-//
-// create a Coordinator.
-// main/mrcoordinator.go calls this function.
-// nReduce is the number of reduce tasks to use.
-//
 func MakeCoordinator(files []string, nReduce int) *Coordinator {
-	c := Coordinator{}
-
-	// Your code here.
-
-
+	c := Coordinator{
+		mutex:         sync.Mutex{},
+		fileList:      files,
+		MapTaskNum:    len(files),
+		ReduceTaskNum: nReduce * len(files),
+		task:          make(map[string]Task),
+	}
+	for i, file := range files {
+		task := Task{
+			index:    i,
+			taskType: "MAP",
+			file:     file,
+		}
+		c.task["MAP"+strconv.Itoa(i)] = task
+	}
 	c.server()
 	return &c
 }
