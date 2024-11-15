@@ -26,16 +26,16 @@ func ihash(key string) int {
 func Worker(mapf func(string, string) []KeyValue,
 	reducef func(string, []string) string) {
 	workerId := os.Getpid()
-	log.Printf("Worker %s start\n", workerId)
+	log.Printf("Worker %d start\n", workerId)
 	for {
 		args := ApplyForTaskArgs{
 			WorkerId: workerId,
 		}
 		reply := ApplyForTaskReply{}
-		call("Coordinator.RPCHanlder", &args, &reply)
-		if reply.Task.taskType == "MAP" {
+		call("Coordinator.RPCHandler", &args, &reply)
+		if reply.Task.TaskType == "MAP" {
 			callMapFunc(mapf, strconv.Itoa(workerId), reply)
-		} else if reply.Task.taskType == "REDUCE" {
+		} else if reply.Task.TaskType == "REDUCE" {
 			callReduceFunc()
 		} else {
 			log.Println("Task Done")
@@ -46,23 +46,23 @@ func Worker(mapf func(string, string) []KeyValue,
 }
 
 func callMapFunc(mapf func(string, string) []KeyValue, workerId string, reply ApplyForTaskReply) {
-	file, err := os.Open(reply.Task.fileName)
+	file, err := os.Open(reply.Task.FileName)
 	if err != nil {
-		log.Fatalf("cannot open %v", reply.Task.fileName)
+		log.Fatalf("cannot open %v", reply.Task.FileName)
 	}
 	content, err := io.ReadAll(file)
 	if err != nil {
-		log.Fatalf("cannot read %v", reply.Task.fileName)
+		log.Fatalf("cannot read %v", reply.Task.FileName)
 	}
 	file.Close()
-	kva := mapf(reply.Task.fileName, string(content))
+	kva := mapf(reply.Task.FileName, string(content))
 	kvaHashMap := make(map[int][]KeyValue)
 	for _, kv := range kva {
 		hashKey := ihash(kv.Key) % reply.ReduceNum
 		kvaHashMap[hashKey] = append(kvaHashMap[hashKey], kv)
 	}
 	for i := 0; i < reply.ReduceNum; i++ {
-		oname := "immediate-" + workerId + "-" + strconv.Itoa(i)
+		oname := "immediate-" + workerId + "-" + strconv.Itoa(reply.Task.Index) + "-" + strconv.Itoa(i)
 		ofile, _ := os.Create(oname)
 		for _, kv := range kvaHashMap[i] {
 			fmt.Fprintf(ofile, "%v %v\n", kv.Key, kv.Value)

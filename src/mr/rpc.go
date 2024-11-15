@@ -6,9 +6,9 @@ import (
 import "strconv"
 
 type Task struct {
-	index    int
-	taskType string
-	fileName string
+	Index    int
+	TaskType string
+	FileName string
 }
 
 type ApplyForTaskArgs struct {

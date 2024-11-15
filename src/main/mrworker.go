@@ -10,40 +10,34 @@ package main
 // Please do not change this file.
 //
 
-import "6.5840/mr"
-import "plugin"
-import "os"
-import "fmt"
-import "log"
+import (
+	"6.5840/mr"
+	"fmt"
+	"strconv"
+	"strings"
+	"unicode"
+)
 
 func main() {
-	if len(os.Args) != 2 {
-		fmt.Fprintf(os.Stderr, "Usage: mrworker xxx.so\n")
-		os.Exit(1)
-	}
 
-	mapf, reducef := loadPlugin(os.Args[1])
+	fmt.Println("mrworker")
 
-	mr.Worker(mapf, reducef)
+	mr.Worker(Map, Reduce)
 }
 
-// load the application Map and Reduce functions
-// from a plugin file, e.g. ../mrapps/wc.so
-func loadPlugin(filename string) (func(string, string) []mr.KeyValue, func(string, []string) string) {
-	p, err := plugin.Open(filename)
-	if err != nil {
-		log.Fatalf("cannot load plugin %v", filename)
-	}
-	xmapf, err := p.Lookup("Map")
-	if err != nil {
-		log.Fatalf("cannot find Map in %v", filename)
-	}
-	mapf := xmapf.(func(string, string) []mr.KeyValue)
-	xreducef, err := p.Lookup("Reduce")
-	if err != nil {
-		log.Fatalf("cannot find Reduce in %v", filename)
-	}
-	reducef := xreducef.(func(string, []string) string)
+func Map(filename string, contents string) []mr.KeyValue {
+	ff := func(r rune) bool { return !unicode.IsLetter(r) }
 
-	return mapf, reducef
+	words := strings.FieldsFunc(contents, ff)
+
+	kva := []mr.KeyValue{}
+	for _, w := range words {
+		kv := mr.KeyValue{w, "1"}
+		kva = append(kva, kv)
+	}
+	return kva
+}
+
+func Reduce(key string, values []string) string {
+	return strconv.Itoa(len(values))
 }

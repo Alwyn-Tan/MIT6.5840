@@ -22,9 +22,10 @@ type Coordinator struct {
 
 func (c *Coordinator) RPCHandler(args *ApplyForTaskArgs, reply *ApplyForTaskReply) error {
 	if c.availableMapTaskNum > 0 {
-		*reply = ApplyForTaskReply{
-			c.taskMap["MAP_"+strconv.Itoa(c.availableMapTaskNum-1)], c.nReduce,
-		}
+		reply.Task =
+			c.taskMap["MAP_"+strconv.Itoa(c.availableMapTaskNum-1)]
+		reply.ReduceNum = c.nReduce
+
 		c.availableReduceTaskNum--
 
 	} else if c.availableReduceTaskNum > 0 {
@@ -46,8 +47,8 @@ func (c *Coordinator) RPCHandler(args *ApplyForTaskArgs, reply *ApplyForTaskRepl
 func (c *Coordinator) makeReduceTasks(reduceTaskNum int) {
 	for i := 0; i < reduceTaskNum; i++ {
 		task := Task{
-			index:    i,
-			taskType: "REDUCE"}
+			Index:    i,
+			TaskType: "REDUCE"}
 		c.taskMap["REDUCE"+strconv.Itoa(i)] = task
 	}
 }
@@ -89,11 +90,11 @@ func MakeCoordinator(files []string, nReduce int) *Coordinator {
 	}
 	for i, file := range files {
 		task := Task{
-			index:    i,
-			taskType: "MAP",
-			fileName: file,
+			Index:    i,
+			TaskType: "MAP",
+			FileName: file,
 		}
-		c.taskMap["MAP"+strconv.Itoa(i)] = task
+		c.taskMap["MAP_"+strconv.Itoa(i)] = task
 	}
 	c.server()
 	return &c
