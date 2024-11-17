@@ -23,6 +23,7 @@ type ApplyForTaskArgs struct {
 type ApplyForTaskReply struct {
 	Task      Task
 	ReduceNum int
+	MapNum    int
 }
 
 func coordinatorSock() string {

@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strconv"
+	"strings"
 )
 import "log"
 import "net/rpc"
@@ -14,6 +16,12 @@ type KeyValue struct {
 	Key   string
 	Value string
 }
+
+type ByKey []KeyValue
+
+func (a ByKey) Len() int           { return len(a) }
+func (a ByKey) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByKey) Less(i, j int) bool { return a[i].Key < a[j].Key }
 
 // use ihash(key) % NReduce to choose the reduce
 // task number for each KeyValue emitted by Map.
@@ -25,7 +33,7 @@ func ihash(key string) int {
 
 func Worker(mapf func(string, string) []KeyValue,
 	reducef func(string, []string) string) {
-	workerId := os.Getpid()
+	workerId := strconv.Itoa(os.Getpid())
 	log.Printf("Worker %d start\n", workerId)
 	for {
 		args := ApplyForTaskArgs{
@@ -34,9 +42,9 @@ func Worker(mapf func(string, string) []KeyValue,
 		reply := ApplyForTaskReply{}
 		call("Coordinator.RPCHandler", &args, &reply)
 		if reply.Task.TaskType == "MAP" {
-			callMapFunc(mapf, strconv.Itoa(workerId), reply)
+			callMapFunc(mapf, workerId, reply)
 		} else if reply.Task.TaskType == "REDUCE" {
-			callReduceFunc()
+			callReduceFunc(reducef())
 		} else {
 			log.Println("Task Done")
 			break
@@ -70,7 +78,55 @@ func callMapFunc(mapf func(string, string) []KeyValue, workerId string, reply Ap
 		ofile.Close()
 	}
 }
-func callReduceFunc() {}
+func callReduceFunc(reducef func(string, []string) string, reply ApplyForTaskReply) {
+	var lines []string
+	for mapIndex := 0; mapIndex < reply.MapNum; mapIndex++ {
+		finalMapFile := "mr-" + strconv.Itoa(mapIndex) + "-" + strconv.Itoa(reply.ReduceNum)
+
+		file, err := os.Open(finalMapFile)
+		if err != nil {
+			log.Fatalf("cannot open %v", finalMapFile)
+		}
+
+		content, err := io.ReadAll(file)
+		if err != nil {
+			log.Fatalf("cannot read %v", finalMapFile)
+		}
+
+		file.Close()
+		lines = append(lines, strings.Split(string(content), "\n")...)
+	}
+
+	var kva []KeyValue
+	for _, line := range lines {
+		parts := strings.Split(line, " ")
+		kva = append(kva, KeyValue{parts[0], parts[1]})
+	}
+
+	sort.Sort(ByKey(kva))
+
+	ofile, _ := os.Create("temp-worker-" + reply.Task.WorkerId + "-" + strconv.Itoa(reply.Task.Index))
+
+	i := 0
+	for i < len(kva) {
+		j := i + 1
+		for j < len(kva) && kva[j].Key == kva[i].Key {
+			j++
+		}
+		values := []string{}
+		for k := i; k < j; k++ {
+			values = append(values, kva[k].Value)
+		}
+		output := reducef(kva[i].Key, values)
+
+		// this is the correct format for each line of Reduce output.
+		fmt.Fprintf(ofile, "%v %v\n", kva[i].Key, output)
+
+		i = j
+	}
+
+	ofile.Close()
+}
 func call(rpcname string, args interface{}, reply interface{}) bool {
 	// c, err := rpc.DialHTTP("tcp", "127.0.0.1"+":1234")
 	sockname := coordinatorSock()
