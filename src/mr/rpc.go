@@ -2,6 +2,7 @@ package mr
 
 import (
 	"os"
+	"time"
 )
 import "strconv"
 
@@ -9,10 +10,14 @@ type Task struct {
 	Index    int
 	TaskType string
 	FileName string
+	WorkerId string
+	Deadline time.Time
 }
 
 type ApplyForTaskArgs struct {
-	WorkerId int
+	WorkerId     string
+	LastWorkId   int
+	LastWorkType string
 }
 
 type ApplyForTaskReply struct {
