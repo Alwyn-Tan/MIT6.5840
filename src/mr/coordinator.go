@@ -13,6 +13,7 @@ import "net/http"
 
 type Coordinator struct {
 	lock                   sync.Mutex
+	stage                  string
 	fileList               []string
 	nMap                   int
 	nReduce                int
@@ -23,6 +24,39 @@ type Coordinator struct {
 }
 
 func (c *Coordinator) RPCHandler(args *ApplyForTaskArgs, reply *ApplyForTaskReply) error {
+	//last task finished handling
+	if args.LastTaskType != "" {
+		c.lock.Lock()
+		lastTaskId := args.LastTaskType + "_" + strconv.Itoa(args.LastTaskIndex)
+		//check the last task having been finished
+		if task, ok := c.taskMap[lastTaskId]; ok && task.WorkerId == args.WorkerId {
+			log.Printf("Task %s finished by worked %s", lastTaskId, args.WorkerId)
+			if args.LastTaskType == "MAP" {
+				for reduceIndex := 0; reduceIndex < c.nReduce; reduceIndex++ {
+					err := os.Rename("temp-map-out-"+args.WorkerId+"-"+strconv.Itoa(args.LastTaskIndex)+"-"+strconv.Itoa(reduceIndex),
+						"map-out-"+"-"+strconv.Itoa(args.LastTaskIndex)+"-"+strconv.Itoa(reduceIndex))
+					if err != nil {
+						log.Fatalf("Failed to out put final map results %s", "temp-map-out-"+args.WorkerId+"-"+strconv.Itoa(args.LastTaskIndex)+"-"+strconv.Itoa(reduceIndex))
+						return err
+					}
+				}
+			} else if args.LastTaskType == "REDUCE" {
+				//for reduce task, LastTaskIndex is exatly the reduce index
+				err := os.Rename("temp-reduce-out-"+args.WorkerId+"-"+strconv.Itoa(args.LastTaskIndex)+"-"+strconv.Itoa(args.LastTaskIndex),
+					"map-out-"+"-"+strconv.Itoa(args.LastTaskIndex)+"-"+strconv.Itoa(args.LastTaskIndex))
+				if err != nil {
+					log.Fatalf("Failed to out put final reduce results %s", "temp-map-out-"+args.WorkerId+"-"+strconv.Itoa(args.LastTaskIndex)+"-"+strconv.Itoa(args.LastTaskIndex))
+					return err
+				}
+			}
+			delete(c.taskMap, lastTaskId)
+			if len(c.taskMap) == 0 {
+				c.changeStage()
+			}
+		}
+		c.lock.Unlock()
+	}
+
 	task, ok := <-c.availableTasks
 	if !ok {
 		return nil
@@ -32,8 +66,21 @@ func (c *Coordinator) RPCHandler(args *ApplyForTaskArgs, reply *ApplyForTaskRepl
 	task.Deadline = time.Now().Add(10 * time.Second)
 
 	reply.Task = task
+	reply.MapNum = c.nMap
 	reply.ReduceNum = c.nReduce
 	return nil
+}
+
+func (c *Coordinator) changeStage() {
+	if c.stage == "MAP" {
+		log.Printf("MAP stage is changed to REEDUCE stage")
+		c.stage = "REDUCE"
+		c.makeReduceTasks(c.nReduce)
+	} else if c.stage == "REDUCE" {
+		log.Printf("REDUCE stage is changed to DONE stage")
+		close(c.availableTasks)
+		c.stage = "DONE"
+	}
 }
 
 func (c *Coordinator) makeReduceTasks(reduceTaskNum int) {
@@ -42,6 +89,7 @@ func (c *Coordinator) makeReduceTasks(reduceTaskNum int) {
 			Index:    i,
 			TaskType: "REDUCE"}
 		c.taskMap["REDUCE"+strconv.Itoa(i)] = task
+		c.availableTasks <- task
 	}
 }
 
@@ -60,19 +108,13 @@ func (c *Coordinator) server() {
 }
 
 func (c *Coordinator) Done() bool {
-	ret := false
-
-	// Your code here.
-	if c.availableReduceTaskNum == 0 {
-		ret = true
-	}
-
-	return ret
+	return c.stage == "DONE"
 }
 
 func MakeCoordinator(files []string, nReduce int) *Coordinator {
 	c := Coordinator{
 		lock:                   sync.Mutex{},
+		stage:                  "MAP",
 		fileList:               files,
 		nMap:                   len(files),
 		nReduce:                nReduce,

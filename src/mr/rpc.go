@@ -15,9 +15,9 @@ type Task struct {
 }
 
 type ApplyForTaskArgs struct {
-	WorkerId     string
-	LastWorkId   int
-	LastWorkType string
+	WorkerId      string
+	LastTaskIndex int
+	LastTaskType  string
 }
 
 type ApplyForTaskReply struct {
