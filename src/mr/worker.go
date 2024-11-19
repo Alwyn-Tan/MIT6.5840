@@ -34,22 +34,28 @@ func ihash(key string) int {
 func Worker(mapf func(string, string) []KeyValue,
 	reducef func(string, []string) string) {
 	workerId := strconv.Itoa(os.Getpid())
-	log.Printf("Worker %d start\n", workerId)
+	var lastTaskType string
+	var lastTaskIndex int
+	log.Printf("Worker %s start\n", workerId)
 	for {
 		args := ApplyForTaskArgs{
-			WorkerId: workerId,
+			WorkerId:      workerId,
+			LastTaskType:  lastTaskType,
+			LastTaskIndex: lastTaskIndex,
 		}
 		reply := ApplyForTaskReply{}
 		call("Coordinator.RPCHandler", &args, &reply)
 		if reply.Task.TaskType == "MAP" {
 			callMapFunc(mapf, workerId, reply)
 		} else if reply.Task.TaskType == "REDUCE" {
-			callReduceFunc(reducef())
+			callReduceFunc(reducef, reply)
 		} else {
 			log.Println("Task Done")
 			break
 		}
-
+		lastTaskType = reply.Task.TaskType
+		lastTaskIndex = reply.Task.Index
+		log.Printf("Worker %s finish task %s \n", workerId, reply.Task.TaskType+"_"+strconv.Itoa(reply.Task.Index))
 	}
 }
 
@@ -70,7 +76,7 @@ func callMapFunc(mapf func(string, string) []KeyValue, workerId string, reply Ap
 		kvaHashMap[hashKey] = append(kvaHashMap[hashKey], kv)
 	}
 	for i := 0; i < reply.ReduceNum; i++ {
-		oname := "immediate-" + workerId + "-" + strconv.Itoa(reply.Task.Index) + "-" + strconv.Itoa(i)
+		oname := tempImmediateFileName(workerId, reply.Task.Index, i)
 		ofile, _ := os.Create(oname)
 		for _, kv := range kvaHashMap[i] {
 			fmt.Fprintf(ofile, "%v %v\n", kv.Key, kv.Value)

@@ -2,6 +2,7 @@ package mr
 
 import (
 	"log"
+	"math"
 	"strconv"
 	"sync"
 	"time"
@@ -27,25 +28,25 @@ func (c *Coordinator) RPCHandler(args *ApplyForTaskArgs, reply *ApplyForTaskRepl
 	//last task finished handling
 	if args.LastTaskType != "" {
 		c.lock.Lock()
-		lastTaskId := args.LastTaskType + "_" + strconv.Itoa(args.LastTaskIndex)
+		lastTaskId := generateTaskId(args.LastTaskType, args.LastTaskIndex)
 		//check the last task having been finished
 		if task, ok := c.taskMap[lastTaskId]; ok && task.WorkerId == args.WorkerId {
 			log.Printf("Task %s finished by worked %s", lastTaskId, args.WorkerId)
 			if args.LastTaskType == "MAP" {
 				for reduceIndex := 0; reduceIndex < c.nReduce; reduceIndex++ {
-					err := os.Rename("temp-map-out-"+args.WorkerId+"-"+strconv.Itoa(args.LastTaskIndex)+"-"+strconv.Itoa(reduceIndex),
-						"map-out-"+"-"+strconv.Itoa(args.LastTaskIndex)+"-"+strconv.Itoa(reduceIndex))
+					err := os.Rename(tempImmediateFileName(args.WorkerId, args.LastTaskIndex, reduceIndex),
+						finalImmediateFileName(args.LastTaskIndex, reduceIndex))
 					if err != nil {
-						log.Fatalf("Failed to out put final map results %s", "temp-map-out-"+args.WorkerId+"-"+strconv.Itoa(args.LastTaskIndex)+"-"+strconv.Itoa(reduceIndex))
+						log.Fatalf("Failed to out put final map results on %s", tempImmediateFileName(args.WorkerId, args.LastTaskIndex, reduceIndex))
 						return err
 					}
 				}
 			} else if args.LastTaskType == "REDUCE" {
 				//for reduce task, LastTaskIndex is exatly the reduce index
-				err := os.Rename("temp-reduce-out-"+args.WorkerId+"-"+strconv.Itoa(args.LastTaskIndex)+"-"+strconv.Itoa(args.LastTaskIndex),
-					"map-out-"+"-"+strconv.Itoa(args.LastTaskIndex)+"-"+strconv.Itoa(args.LastTaskIndex))
+				err := os.Rename(tempOutputFileName(args.WorkerId, args.LastTaskIndex),
+					finalOutputFileName(args.LastTaskIndex))
 				if err != nil {
-					log.Fatalf("Failed to out put final reduce results %s", "temp-map-out-"+args.WorkerId+"-"+strconv.Itoa(args.LastTaskIndex)+"-"+strconv.Itoa(args.LastTaskIndex))
+					log.Fatalf("Failed to out put final reduce results %s", tempOutputFileName(args.WorkerId, args.LastTaskIndex))
 					return err
 				}
 			}
@@ -64,7 +65,7 @@ func (c *Coordinator) RPCHandler(args *ApplyForTaskArgs, reply *ApplyForTaskRepl
 	log.Printf("Assign task %s_%v to worker %v", task.TaskType, task.Index, args.WorkerId)
 	task.WorkerId = args.WorkerId
 	task.Deadline = time.Now().Add(10 * time.Second)
-
+	c.taskMap[generateTaskId(task.TaskType, task.Index)] = task
 	reply.Task = task
 	reply.MapNum = c.nMap
 	reply.ReduceNum = c.nReduce
@@ -121,7 +122,7 @@ func MakeCoordinator(files []string, nReduce int) *Coordinator {
 		availableMapTaskNum:    len(files),
 		availableReduceTaskNum: nReduce * len(files),
 		taskMap:                make(map[string]Task),
-		availableTasks:         make(chan Task),
+		availableTasks:         make(chan Task, int(math.Max(float64(len(files)), float64(nReduce)))),
 	}
 	for i, file := range files {
 		task := Task{
