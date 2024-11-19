@@ -48,7 +48,7 @@ func Worker(mapf func(string, string) []KeyValue,
 		if reply.Task.TaskType == "MAP" {
 			callMapFunc(mapf, workerId, reply)
 		} else if reply.Task.TaskType == "REDUCE" {
-			callReduceFunc(reducef, reply)
+			callReduceFunc(reducef, workerId, reply)
 		} else {
 			log.Println("Task Done")
 			break
@@ -84,10 +84,10 @@ func callMapFunc(mapf func(string, string) []KeyValue, workerId string, reply Ap
 		ofile.Close()
 	}
 }
-func callReduceFunc(reducef func(string, []string) string, reply ApplyForTaskReply) {
+func callReduceFunc(reducef func(string, []string) string, workerId string, reply ApplyForTaskReply) {
 	var lines []string
 	for mapIndex := 0; mapIndex < reply.MapNum; mapIndex++ {
-		finalMapFile := "mr-" + strconv.Itoa(mapIndex) + "-" + strconv.Itoa(reply.ReduceNum)
+		finalMapFile := finalImmediateFileName(mapIndex, reply.Task.Index)
 
 		file, err := os.Open(finalMapFile)
 		if err != nil {
@@ -105,13 +105,16 @@ func callReduceFunc(reducef func(string, []string) string, reply ApplyForTaskRep
 
 	var kva []KeyValue
 	for _, line := range lines {
+		if line == "" {
+			continue
+		}
 		parts := strings.Split(line, " ")
 		kva = append(kva, KeyValue{parts[0], parts[1]})
 	}
 
 	sort.Sort(ByKey(kva))
 
-	ofile, _ := os.Create("temp-worker-" + reply.Task.WorkerId + "-" + strconv.Itoa(reply.Task.Index))
+	ofile, _ := os.Create(tempOutputFileName(workerId, reply.Task.Index))
 
 	i := 0
 	for i < len(kva) {

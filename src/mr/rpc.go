@@ -32,12 +32,18 @@ func coordinatorSock() string {
 	return s
 }
 
+//TaskId: MAP_0 REDUCE_0
+//tempImmediateFile: temp-immed-12345-0-2
+//finalImmediateFile: immed-0-2
+//tempOutputFile: temp-out-2
+//finalOutputFile: mr-out-2
+
 func generateTaskId(taskType string, taskIndex int) string {
 	return taskType + "_" + strconv.Itoa(taskIndex)
 }
 
 func tempImmediateFileName(workerId string, mapIndex int, reduceIndex int) string {
-	return "temp-immed" + workerId + "-" + strconv.Itoa(mapIndex) + "-" + strconv.Itoa(reduceIndex) + ".txt"
+	return "temp-immed-" + workerId + "-" + strconv.Itoa(mapIndex) + "-" + strconv.Itoa(reduceIndex) + ".txt"
 }
 
 func finalImmediateFileName(mapIndex int, reduceIndex int) string {

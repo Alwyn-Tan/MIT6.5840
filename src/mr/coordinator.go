@@ -31,7 +31,7 @@ func (c *Coordinator) RPCHandler(args *ApplyForTaskArgs, reply *ApplyForTaskRepl
 		lastTaskId := generateTaskId(args.LastTaskType, args.LastTaskIndex)
 		//check the last task having been finished
 		if task, ok := c.taskMap[lastTaskId]; ok && task.WorkerId == args.WorkerId {
-			log.Printf("Task %s finished by worked %s", lastTaskId, args.WorkerId)
+			log.Printf("Task %s finished by worker %s", lastTaskId, args.WorkerId)
 			if args.LastTaskType == "MAP" {
 				for reduceIndex := 0; reduceIndex < c.nReduce; reduceIndex++ {
 					err := os.Rename(tempImmediateFileName(args.WorkerId, args.LastTaskIndex, reduceIndex),
@@ -64,7 +64,7 @@ func (c *Coordinator) RPCHandler(args *ApplyForTaskArgs, reply *ApplyForTaskRepl
 	}
 	log.Printf("Assign task %s_%v to worker %v", task.TaskType, task.Index, args.WorkerId)
 	task.WorkerId = args.WorkerId
-	task.Deadline = time.Now().Add(10 * time.Second)
+	task.Deadline = time.Now().Add(1000 * time.Second)
 	c.taskMap[generateTaskId(task.TaskType, task.Index)] = task
 	reply.Task = task
 	reply.MapNum = c.nMap
@@ -89,7 +89,7 @@ func (c *Coordinator) makeReduceTasks(reduceTaskNum int) {
 		task := Task{
 			Index:    i,
 			TaskType: "REDUCE"}
-		c.taskMap["REDUCE"+strconv.Itoa(i)] = task
+		c.taskMap["REDUCE_"+strconv.Itoa(i)] = task
 		c.availableTasks <- task
 	}
 }
