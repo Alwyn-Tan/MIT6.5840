@@ -64,7 +64,7 @@ func (c *Coordinator) RPCHandler(args *ApplyForTaskArgs, reply *ApplyForTaskRepl
 	}
 	log.Printf("Assign task %s_%v to worker %v", task.TaskType, task.Index, args.WorkerId)
 	task.WorkerId = args.WorkerId
-	task.Deadline = time.Now().Add(1000 * time.Second)
+	task.Deadline = time.Now().Add(10 * time.Second)
 	c.taskMap[generateTaskId(task.TaskType, task.Index)] = task
 	reply.Task = task
 	reply.MapNum = c.nMap
