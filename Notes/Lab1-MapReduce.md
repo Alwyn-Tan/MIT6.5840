@@ -54,5 +54,19 @@ So the final output would be:
 ...
 ```
 
+# How to implement distributed MapReduce?
+It is usually a good practice to develop your habits for problem-solving, and my way is asking such questions over and over again, advancing gradually and deeply:
+* Can we divide the problem into small parts? And can we analyse the relations among these small parts?
+* For each part, what can it do and what information should it know?
+* How is the way these parts communicate with others?
+
+It is often not easy to directly figure out the whole picture and procedure for a software, especially for a distributed system, 
+but we could try to solve it step by step.
+Ok, so for this distributed MapRecuce, let's start by answering some basic questions:
+
+* Yes, this work can be done by one coordinator with some workers. Coordinators prepare and assign jobs, leadning the work, meanwhile
+the workers are asking for jobs and reporting to coordinator continuously.
+* 
+
 
 
