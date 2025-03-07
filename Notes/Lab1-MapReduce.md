@@ -64,9 +64,58 @@ It is often not easy to directly figure out the whole picture and procedure for 
 but we could try to solve it step by step.
 Ok, so for this distributed MapRecuce, let's start by answering some basic questions:
 
-* Yes, this work can be done by one coordinator with some workers. Coordinators prepare and assign jobs, leadning the work, meanwhile
-the workers are asking for jobs and reporting to coordinator continuously.
-* 
+* Yes, this work can be done by one coordinator with some workers. The relation between them are like server-client, many clients ask server for resources, that is exactly the way our coordinator and workers perform
+* Coordinators prepare and assign jobs, leadning the work, meanwhile the workers are asking for jobs, doing the jobs and reporting to coordinator continuously.
+* MIT courses have told us that what is RPC, that is the way they would communicate in.
+
+## Define the Coordinator
+Our coordinator should do such things:
+* Prepare the tasks, that means storing the input files, and record the tasks and where the tasks have gone, also the dealine of the tasks
+* Control the parallel acceess to tasks, one task should only be accessed by one worker at one moment
+* Lead the job stage, when to map, when to reduce and when to finish the job
+
+So, maybe we could try to build a rough coordinator like this:
+```
+type Coordinator struct {
+	lock		sync.Mutex 
+	stage		string
+	fileList	[]string
+	nMap		int
+	nReduce		int
+	taskMap	 	map[string]Task
+}
+```
+
+### Task as the resource being transported
+You must noticed that we use ```map[string]Task```, you must have heard something like frame, segment or packet in network, there are the units of data in different layers. Like the network, our coordinator and workers need something to communicate with, that is ```Task```. Workers ask for ```Task``` and coordinator assign ```Task```, to better indentify ```Task``` and know whereit is gone, we define the ```Task```:
+```
+type Task struct{
+	Index		int
+	TaskType	string //"Map" or "Reduce"
+	FileName	string
+	WorkerId 	string
+	Deadline 	time.Time
+}
+```
+### Control the stage: Task channel
+Should we wait for all workers finish the map tasks then move to reduce tasks, or do map tasks and reduce tasks at the same time? I choose the simple one, which means split the work into map stage and reduce stage, after finishing map stage can we then step into reduce stage.
+ To control the stage means we need to know when all map/reduce tasks are all finished, which data structure shuold we use? List? Map? Or...channel? 
+We often say Go is born for parallel program, and channel is a powerful tool we can use for parallel communicating. It enables us to exchange data between different Goroutines securely. And that is excatly what we want.
+So the enhanced coordinator is like:
+```
+type Coordinator struct {
+	lock			sync.Mutex 
+	stage			string
+	fileList		[]string
+	nMap			int
+	nReduce			int
+	taskMap	 		map[string]Task
+	availableTasks	chan Task
+}
+```
+
+
+
 
 
 

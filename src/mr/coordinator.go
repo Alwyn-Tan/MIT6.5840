@@ -13,15 +13,13 @@ import "net/rpc"
 import "net/http"
 
 type Coordinator struct {
-	lock                   sync.Mutex
-	stage                  string
-	fileList               []string
-	nMap                   int
-	nReduce                int
-	availableMapTaskNum    int
-	availableReduceTaskNum int
-	taskMap                map[string]Task
-	availableTasks         chan Task
+	lock           sync.Mutex
+	stage          string
+	fileList       []string
+	nMap           int
+	nReduce        int
+	taskMap        map[string]Task
+	availableTasks chan Task
 }
 
 func (c *Coordinator) RPCHandler(args *ApplyForTaskArgs, reply *ApplyForTaskReply) error {
@@ -114,15 +112,13 @@ func (c *Coordinator) Done() bool {
 
 func MakeCoordinator(files []string, nReduce int) *Coordinator {
 	c := Coordinator{
-		lock:                   sync.Mutex{},
-		stage:                  "MAP",
-		fileList:               files,
-		nMap:                   len(files),
-		nReduce:                nReduce,
-		availableMapTaskNum:    len(files),
-		availableReduceTaskNum: nReduce * len(files),
-		taskMap:                make(map[string]Task),
-		availableTasks:         make(chan Task, int(math.Max(float64(len(files)), float64(nReduce)))),
+		lock:           sync.Mutex{},
+		stage:          "MAP",
+		fileList:       files,
+		nMap:           len(files),
+		nReduce:        nReduce,
+		taskMap:        make(map[string]Task),
+		availableTasks: make(chan Task, int(math.Max(float64(len(files)), float64(nReduce)))),
 	}
 	for i, file := range files {
 		task := Task{
