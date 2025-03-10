@@ -91,16 +91,16 @@ You must noticed that we use ```map[string]Task```, you must have heard somethin
 ```
 type Task struct{
 	Index		int
-	TaskType	string //"Map" or "Reduce"
+	TaskType	string //"Map" or "Reduce" or ""
 	FileName	string
 	WorkerId 	string
 	Deadline 	time.Time
 }
 ```
 ### Control the stage: Task channel
-Should we wait for all workers finish the map tasks then move to reduce tasks, or do map tasks and reduce tasks at the same time? I choose the simple one, which means split the work into map stage and reduce stage, after finishing map stage can we then step into reduce stage.
- To control the stage means we need to know when all map/reduce tasks are all finished, which data structure shuold we use? List? Map? Or...channel? 
-We often say Go is born for parallel program, and channel is a powerful tool we can use for parallel communicating. It enables us to exchange data between different Goroutines securely. And that is excatly what we want.
+Should we wait for all workers finish the map tasks then move to reduce tasks, or do map tasks and reduce tasks at the same time? I choose the simple one, which means split the work into map stage and reduce stage, after finishing map stage can we then step into reduce stage. </br>
+ To control the stage means we need to know when all map/reduce tasks are all finished, which data structure shuold we use? List? Map? Or...channel? </br>
+We often say Go is born for parallel program, and channel is a powerful tool we can use for parallel communicating. It enables us to exchange data between different Goroutines securely. And that is excatly what we want. </br>
 So the enhanced coordinator is like:
 ```
 type Coordinator struct {
