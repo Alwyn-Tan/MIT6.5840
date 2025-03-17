@@ -87,7 +87,7 @@ type Coordinator struct {
 ```
 
 ### Task as the resource being transported
-You must noticed that we use ```map[string]Task```, you must have heard something like frame, segment or packet in network, there are the units of data in different layers. Like the network, our coordinator and workers need something to communicate with, that is ```Task```. Workers ask for ```Task``` and coordinator assign ```Task```, to better indentify ```Task``` and know whereit is gone, we define the ```Task```:
+You must have noticed that we use ```map[string]Task```, you must have heard something like frame, segment or packet in network, there are the units of data in different layers. Like the network, our coordinator and workers need something to communicate with, that is ```Task```. Workers ask for ```Task``` and coordinator assign ```Task```, to better indentify ```Task``` and know whereit is gone, we define the ```Task```:
 ```
 type Task struct{
 	Index		int
@@ -97,6 +97,7 @@ type Task struct{
 	Deadline 	time.Time
 }
 ```
+
 ### Control the stage: Task channel
 Should we wait for all workers finish the map tasks then move to reduce tasks, or do map tasks and reduce tasks at the same time? I choose the simple one, which means split the work into map stage and reduce stage, after finishing map stage can we then step into reduce stage. </br>
  To control the stage means we need to know when all map/reduce tasks are all finished, which data structure shuold we use? List? Map? Or...channel? </br>
@@ -114,6 +115,31 @@ type Coordinator struct {
 }
 ```
 
+## Communication based on RPC 
+One difficulty in this project is how to design RPC systems. And it's quite cool to implement our own protocols.
+You　may remember how [TCP][https://en.wikipedia.org/wiki/Transmission_Control_Protocol#Connection_establishment] works.
+In a network system, identification is an essential problem. In TCP, we use 'Three-way Handshake' to establish a connection. Double ACKs
+ensure that we connect to a trusted address.</br>
+What about the distributed Map-Reduce system? We need to verify that the Task was completed by the designated worker, which means worker
+should report to coordinator that what Task it has done(ACK), and coordinator then verify that 'yes, what you have done is verified'(ACK):
+```
+\\in rpc.go
+type ApplyForTaskArg struct {
+WorkerId      string
+LastTaskType  string
+LastTaskIndex int
+}
+
+\\........
+
+\\in coordinator.go
+lastTaskId := generateTaskId(args.LastTaskType, args.LastTaskIndex)
+		//check the last task having been finished by the designated worker
+		if task, ok := c.taskMap[lastTaskId]; ok && task.WorkerId == args.WorkerId {
+			log.Printf("Task %s finished by worker %s", lastTaskId, args.WorkerId)
+			...
+		}
+```
 
 
 
