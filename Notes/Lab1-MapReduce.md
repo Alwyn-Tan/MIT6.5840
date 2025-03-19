@@ -140,6 +140,43 @@ lastTaskId := generateTaskId(args.LastTaskType, args.LastTaskIndex)
 			...
 		}
 ```
+## Fault Tolerance
+According to [Designing Data Intensive Applications by Martin Kleppmann][https://www.oreilly.com/library/view/designing-data-intensive-applications/9781491903063/]
+The three main topics we focus on in distributed system are reliability, scalability and maintainability, and reliability means
+fault toletance. Our Workers may encounter a situation of
+breakdown, and Coordinator will detect such case if the Task meets its deadline (which is 10 seconds). After one Task 
+times out, Coordinator should reassign the Task to another Worker.</br>
+But as what we learned in computer networks, a request timing out does not mean that the requesting service has actually
+crashed, it may be just system busy or may be due to the network congestion. So it is likely that after re-assigning Task
+we will have two Worker working on one same Task. How to avoid such parallel working situation?</br>
+The lab doc gives us some hint: _"To ensure that nobody observes partially written files in the presence of crashes, 
+the MapReduce paper mentions the trick of using a temporary file and atomically renaming it once it is completely written."_ And
+that is exactly what we are going to implement in coordinator.go:
+```
+if args.LastTaskType == "MAP" {
+				for reduceIndex := 0; reduceIndex < c.nReduce; reduceIndex++ {
+					err := os.Rename(tempImmediateFileName(args.WorkerId, args.LastTaskIndex, reduceIndex),
+						finalImmediateFileName(args.LastTaskIndex, reduceIndex))
+					if err != nil {
+						log.Fatalf("Failed to out put final map results on %s", tempImmediateFileName(args.WorkerId, args.LastTaskIndex, reduceIndex))
+						return err
+					}
+				}
+			} else if args.LastTaskType == "REDUCE" {
+				//for reduce task, LastTaskIndex is exatly the reduce index
+				err := os.Rename(tempOutputFileName(args.WorkerId, args.LastTaskIndex),
+					finalOutputFileName(args.LastTaskIndex))
+				if err != nil {
+					log.Fatalf("Failed to out put final reduce results %s", tempOutputFileName(args.WorkerId, args.LastTaskIndex))
+					return err
+				}
+			}
+```
+One map task output should be partitioned into nReduce parts for reducing. Using ```err := os.Rename(tempImmediateFileName, finalImmediateFileName)```, we make sure that only 
+one temp immediate file can be renamed to final immediate file, for Rename() can only by done by once. The ```Rename()``` for Reduce task works in the same way.
+
+
+
 
 
 

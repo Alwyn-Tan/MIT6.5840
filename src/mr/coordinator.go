@@ -72,7 +72,7 @@ func (c *Coordinator) RPCHandler(args *ApplyForTaskArgs, reply *ApplyForTaskRepl
 
 func (c *Coordinator) changeStage() {
 	if c.stage == "MAP" {
-		log.Printf("MAP stage is changed to REEDUCE stage")
+		log.Printf("MAP stage is changed to REDUCE stage")
 		c.stage = "REDUCE"
 		c.makeReduceTasks(c.nReduce)
 	} else if c.stage == "REDUCE" {
